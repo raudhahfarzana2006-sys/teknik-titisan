@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio Seni - Teknik Titisan</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:14px;background:#f1f5ff;
+font-family:Arial,sans-serif;color:#24324b}
+.app{max-width:850px;margin:auto;background:white;
+padding:18px;border-radius:20px;box-shadow:0 4px 20px #24324b15}
+h1{text-align:center;font-size:25px;margin:4px 0 8px}
+p{text-align:center;font-size:14px;line-height:1.5}
+.tools{display:flex;flex-wrap:wrap;gap:9px;
+justify-content:center;align-items:center;margin:16px 0}
+.palette{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.swatch{width:34px;height:34px;border-radius:50%;
+border:3px solid white;box-shadow:0 0 0 1px #ccc;cursor:pointer}
+.swatch.active{box-shadow:0 0 0 3px #253858}
+button{border:0;border-radius:10px;padding:10px 13px;
+font-weight:bold;cursor:pointer;background:#e9edfa;color:#24324b}
+button.main{background:#5b4ce2;color:white}
+button:focus-visible,.swatch:focus-visible{outline:3px solid #ffae42}
+label{font-size:13px;font-weight:bold}
+#canvas{display:block;width:100%;height:auto;aspect-ratio:9/5;
+border:2px dashed #ccd5e7;border-radius:12px;
+background:#fff;touch-action:none;cursor:crosshair}
+.hint{text-align:center;font-size:12px;color:#65738a}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>🎨 Studio Seni Teknik Titisan</h1>
+<p>Pilih warna, kemudian sentuh atau klik pada kanvas
+untuk menghasilkan karya seni titisan anda!</p>
+
+<div class="tools">
+<div class="palette" id="palette"></div>
+</div>
+
+<div class="tools">
+<label for="size">Saiz titisan</label>
+<input id="size" type="range" min="4" max="28" value="13">
+<span id="sizeValue">13</span>
+<button id="drip">💧 Titis berulang</button>
+<button id="undo">↶ Undur</button>
+<button id="clear">🧹 Mula semula</button>
+<button class="main" id="save">⬇ Simpan karya</button>
+</div>
+
+<canvas id="canvas" width="900" height="500"
+aria-label="Kanvas seni interaktif. Sentuh untuk menghasilkan titisan warna."></canvas>
+<p class="hint">Petua: Cuba gabungkan warna, saiz dan kedudukan
+yang berbeza untuk menghasilkan corak unik.</p>
+</div>
+
+<script>
+const canvas=document.getElementById("canvas");
+const ctx=canvas.getContext("2d");
+const colors=["#ef476f","#ff9f1c","#ffd166","#06d6a0",
+"#118ab2","#4361ee","#9b5de5","#f15bb5","#222222"];
+let color=colors[0], size=13, repeat=false, marks=[];
+
+const palette=document.getElementById("palette");
+colors.forEach((c,i)=>{
+ const b=document.createElement("button");
+ b.className="swatch"+(i===0?" active":"");
+ b.style.background=c;
+ b.setAttribute("aria-label","Pilih warna "+(i+1));
+ b.onclick=()=>{
+  color=c;
+  document.querySelectorAll(".swatch").forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+ };
+ palette.appendChild(b);
+});
+
+function background(){
+ ctx.fillStyle="#ffffff";
+ ctx.fillRect(0,0,canvas.width,canvas.height);
+}
+function paintDrop(x,y,r,c){
+ // Kesan titisan memanjang
+ ctx.save();
+ ctx.fillStyle=c;
+ ctx.globalAlpha=.88;
+ ctx.beginPath();
+ ctx.ellipse(x,y+r*.25,r*.72,r,0,0,Math.PI*2);
+ ctx.fill();
+ // Percikan kecil di sekeliling titisan
+ for(let i=0;i<7;i++){
+  const a=Math.random()*Math.PI*2;
+  const d=r*(1.2+Math.random()*1.8);
+  const rr=r*(.09+Math.random()*.19);
+  ctx.beginPath();
+  ctx.arc(x+Math.cos(a)*d,y+Math.sin(a)*d,rr,0,Math.PI*2);
+  ctx.fill();
+ }
+ // Jejak aliran warna
+ if(Math.random()>.38){
+  ctx.globalAlpha=.65;
+  ctx.beginPath();
+  ctx.moveTo(x-r*.25,y+r*.7);
+  ctx.quadraticCurveTo(x+r*.15,y+r*1.5,x+r*.05,y+r*(2+Math.random()*2));
+  ctx.lineWidth=Math.max(1,r*.28);
+  ctx.lineCap="round";
+  ctx.strokeStyle=c;
+  ctx.stroke();
+ }
+ ctx.restore();
+}
+function redraw(){
+ background();
+ marks.forEach(m=>paintDrop(m.x,m.y,m.r,m.c));
+}
+function drop(e){
+ const rect=canvas.getBoundingClientRect();
+ const x=(e.clientX-rect.left)*canvas.width/rect.width;
+ const y=(e.clientY-rect.top)*canvas.height/rect.height;
+ const m={x,y,r:size,c:color};
+ marks.push(m);
+ paintDrop(m.x,m.y,m.r,m.c);
+}
+let last=0;
+canvas.addEventListener("pointerdown",e=>{
+ e.preventDefault();
+ drop(e);
+ last=Date.now();
+});
+canvas.addEventListener("pointermove",e=>{
+ if(repeat && e.buttons===1 && Date.now()-last>75){
+  drop(e);last=Date.now();
+ }
+});
+document.getElementById("size").addEventListener("input",e=>{
+ size=Number(e.target.value);
+ document.getElementById("sizeValue").textContent=size;
+});
+document.getElementById("drip").onclick=()=>{
+ repeat=!repeat;
+ document.getElementById("drip").textContent=
+ repeat?"💧 Mod titisan berulang: ON":"💧 Titis berulang";
+};
+document.getElementById("undo").onclick=()=>{
+ marks.pop();redraw();
+};
+document.getElementById("clear").onclick=()=>{
+ marks=[];redraw();
+};
+document.getElementById("save").onclick=()=>{
+ const link=document.createElement("a");
+ link.download="karya-teknik-titisan.png";
+ link.href=canvas.toDataURL("image/png");
+ link.click();
+};
+background();
+</script>
+</body>
+</html>
